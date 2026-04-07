@@ -1,9 +1,9 @@
 // Find TODO statements and complete them to build the interactive airline route map.
 
-// TODO: add your uniqname to the HTML (use id #uniqname) file so that your work can be identified 
+// TODO: add your uniqname to the HTML (use id #uniqname) file so that your work can be identified
 
 // TODO: import data using d3.csv()
-const dataFile = 
+const dataFile = await d3.csv("../data/routes.csv");
 
 const colornone = "#ccc";
 
@@ -23,7 +23,7 @@ select.selectAll("option")
     .data(airlines)
     .join("option")
     .attr("value", d => d)
-    .text(// TODO: build options from selector that allows us to view all airlines or filter by a specific airline);
+    .text(d => d === "all" ? "All Airlines" : airlineName[d] || d);
 
 // helper function to build outgoing links for each leaf node
 function bilink(root) {
@@ -81,4 +81,102 @@ draw("all"); // initial draw
 // TODO: edit overed and outed functions to highlight connected links and nodes on hover
 function createChart(data) {
 
+    const width = 800;
+    const radius = width / 2;
+
+    const tree = d3.cluster()
+        .size([2 * Math.PI, radius - 100]);
+
+    const root = tree(bilink(d3.hierarchy(data)));
+
+    const svg = d3.create("svg")
+        .attr("viewBox", [-width / 2, -width / 2, width, width]);
+
+    const line = d3.lineRadial()
+        .curve(d3.curveBundle.beta(0.85))
+        .radius(d => d.y)
+        .angle(d => d.x);
+
+    const linksData = root.leaves().flatMap(d =>
+        d.outgoing.map(o => ({
+            source: o[0],
+            target: o[1],
+            airline: o[2]
+        }))
+    );
+
+    const link = svg.append("g")
+        .selectAll("path")
+        .data(linksData)
+        .join("path")
+        .attr("fill", "none")
+        .attr("stroke", d => airlineColor[d.airline] || colornone)
+        .attr("stroke-opacity", 0.4)
+        .attr("d", d => line(d.source.path(d.target)));
+
+    const node = svg.append("g")
+        .selectAll("text")
+        .data(root.leaves())
+        .join("text")
+        .attr("dy", "0.31em")
+        .attr("transform", d => `
+            rotate(${d.x * 180 / Math.PI - 90})
+            translate(${d.y},0)
+            ${d.x >= Math.PI ? "rotate(180)" : ""}
+        `)
+        .attr("text-anchor", d => d.x < Math.PI ? "start" : "end")
+        .text(d => d.data.name);
+
+    const tooltip = d3.select("body")
+        .append("div")
+        .style("position", "absolute")
+        .style("opacity", 0);
+
+    function outgoingCount(d) {
+        return d.outgoing.length;
+    }
+
+    function incomingCount(d) {
+        return linksData.filter(l => l.target === d).length;
+    }
+
+    function overed(event, d) {
+
+        node.style("opacity", 0.2);
+        link.style("opacity", 0.05);
+
+        link
+            .filter(l => l.source === d || l.target === d)
+            .style("opacity", 1)
+            .attr("stroke-width", 2);
+
+        node
+            .filter(n =>
+                n === d ||
+                d.outgoing.some(o => o[1] === n) ||
+                linksData.some(l => l.target === d && l.source === n)
+            )
+            .style("opacity", 1);
+
+        tooltip
+            .style("opacity", 1)
+            .html(`
+                <strong>${d.data.name}</strong><br/>
+                Region: ${d.parent.data.name}<br/>
+                Incoming: ${incomingCount(d)}<br/>
+                Outgoing: ${outgoingCount(d)}
+            `)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY + 10) + "px");
+    }
+
+    function outed() {
+        node.style("opacity", 1);
+        link.style("opacity", 0.4).attr("stroke-width", 1);
+        tooltip.style("opacity", 0);
+    }
+
+    node.on("mouseover", overed).on("mouseout", outed);
+
+    return svg.node();
 }
