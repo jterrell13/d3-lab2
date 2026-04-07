@@ -1,9 +1,9 @@
 // Find TODO statements and complete them to build the interactive airline route map.
 
-// TODO: add your uniqname to the HTML (use id #uniqname) file so that your work can be identified
+// TODO: add your uniqname to the HTML (use id  #uniqname) file so that your work can be identified
 
 // TODO: import data using d3.csv()
-const dataFile = await d3.csv("../data/routes.csv");
+const dataFile = await d3.csv("/data/routes.csv");
 
 const colornone = "#ccc";
 
